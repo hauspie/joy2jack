@@ -1,4 +1,4 @@
-CFLAGS=-Wall -W
+CFLAGS=-Wall -W -g -O
 LDFLAGS=-ljack
 CC=clang
 LD=$(CC)

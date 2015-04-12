@@ -19,8 +19,10 @@
 #include <jack/jack.h>
 
 #include "joystick.h"
+#include "joystick_mapping.h"
 
 static jack_port_t *output_midi_port;
+static int current_midi_channel = 0;
 
 #define JACK_CLIENT_NAME_BASE "joy2jack"
 
@@ -39,6 +41,28 @@ void jack_shutdown(void *arg)
    exit(1);
 }
 
+
+void joy_event(struct js_event *e)
+{
+   if (CHECK_EVENT(*e, MIDI_NEXT_CHANNEL))
+   {
+      current_midi_channel++;
+      if (current_midi_channel == 16)
+         current_midi_channel = 0;
+      printf("Switching to channel %d\n", current_midi_channel);
+   }
+
+   if (CHECK_EVENT(*e, MIDI_PREVIOUS_CHANNEL))
+   {
+      if (current_midi_channel == 0)
+         current_midi_channel = 15;
+      else
+         current_midi_channel--;
+
+      printf("Switching to channel %d\n", current_midi_channel);
+   }
+   
+}
 
 int main(int argc, char **argv)
 {
@@ -66,18 +90,9 @@ int main(int argc, char **argv)
       struct js_event e;
       if (read_joystick_event(&joy, &e) == -1)
          fatal_error("Failed to read joystick event\n");
-      switch (e.type)
-      {
-         case JS_EVENT_BUTTON:
-            printf("Button %d, value: %d\n", e.number, e.value);
-            break;
-         case JS_EVENT_AXIS:
-            printf("Axis %d, value: %d\n", e.number, e.value);
-            break;
-         default:
-            printf("Other type: %d: %d, %d\n", e.type, e.number, e.value);
-            break;
-      }
+      joy_event(&e);
+      /* jack_midi_clear_buffer(output_midi_port); */
+/*      jack_midi_event_write(output_midi_port, */
    }
    return 0;
 }
