@@ -53,7 +53,7 @@ void jack_shutdown(void *arg)
 
 int button_to_note(uint8_t button)
 {
-   return (button + 60) & 0x7f;
+   return (button + 36) & 0x7f;
 }
 
 void joy_event(struct js_event *e)
@@ -81,16 +81,18 @@ void joy_event(struct js_event *e)
    if (e->type != JS_EVENT_BUTTON) /* Only use buttons yet */
       return;
 
+   if (!e->value) /* Do not send NOTE_OFF */
+      return;
+   current_note++;
    jack_midi_data_t *note = note_queue + 3*current_note; /* Status, Note, Velocity */
-
    /* See http://www.midi.org/techspecs/midimessages.php for MIDI message specification */
    if (e->value)
       note[0] = NOTE_ON | current_midi_channel;
    else
       note[0] = NOTE_OFF | current_midi_channel;
    note[1] = button_to_note(e->number);
-   note[2] = MIDI_MAX_VELOCITY; /* max velocity */
-   current_note++;
+   note[2] = 100;//MIDI_MAX_VELOCITY; /* max velocity */
+   printf("Sending(%d) %x %d %d\n", e->type, note[0], note[1], note[2]);
 }
 
 int process(jack_nframes_t nframes, void *arg)
@@ -103,7 +105,7 @@ int process(jack_nframes_t nframes, void *arg)
    jack_midi_clear_buffer(port_buffer);
    jack_midi_data_t *midi_data = jack_midi_event_reserve(port_buffer, 0, (current_note+1)*3);
    memcpy(midi_data, note_queue, (current_note+1)*3);
-   current_note = 0;
+   current_note = -1;
    return 0;
 }
 
