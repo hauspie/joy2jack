@@ -16,11 +16,7 @@
 
 #ifndef __JOYSTICK_MAPPING_H__
 #define __JOYSTICK_MAPPING_H__
-
-
-#define BUTTON_EVENT(number,value) ((1 << 15) | (number & 0x7f) << 7 | (value & 0x7f))
-#define AXIS_EVENT(number,value) ((number & 0x7f) << 7 | (value & 0x7f))
-
+#include "mapping_helpers.h"
 
 /* This mapping corresponds to the rockband wii drum kit
    
@@ -29,16 +25,5 @@
 
 #define MIDI_NEXT_CHANNEL     BUTTON_EVENT(9, 1)
 #define MIDI_PREVIOUS_CHANNEL BUTTON_EVENT(8, 1)
-
-
-#define IS_BUTTON(event_compact_description) ((event_compact_description) & (1 << 15) ? 1 : 0)
-#define IS_AXIS(event_compact_description) ((event_compact_description) & (1 << 15) ? 0 : 1)
-#define NUMBER(event_compact_description) (((event_compact_description) >> 7) & 0x7f)
-#define VALUE(event_compact_description) (((event_compact_description)) & 0x7f)
-
-#define IS_SAME(joyevent_type, event_compact_description) (((joyevent_type) == JS_EVENT_BUTTON) && IS_BUTTON((event_compact_description)) || (((joyevent_type) == JS_EVENT_AXIS) && IS_AXIS((event_compact_description))))
-
-#define CHECK_EVENT(joyevent, event_compact_description) (IS_SAME((joyevent).type, event_compact_description) && (joyevent).number == NUMBER((event_compact_description)) && (joyevent).value == VALUE((event_compact_description)))
-
 
 #endif
