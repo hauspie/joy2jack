@@ -1,0 +1,3 @@
+* Missing functionalities
+  - [ ] Option to select which joystick to use
+  - [ ] Configuration files to configure mapping between buttons/axes to midi notes/channels
