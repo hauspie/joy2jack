@@ -1,3 +1,8 @@
+Development in progress
+=======================
+
+This software does not work yet ! :)
+
 Joy2Jack
 =======
 
@@ -5,6 +10,8 @@ joy2jack is a tool to convert joystick events to jack midi events.  It
 was developped to use the Wii Rockband Drum USB controller as a
 virtual MIDI drum kit (using
 [hydrogen](http://www.hydrogen-music.org/hcms/) for example).
+
+
 
 
 Compile requirements
