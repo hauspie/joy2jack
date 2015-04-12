@@ -16,15 +16,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <string.h>
 #include <jack/jack.h>
+#include <jack/midiport.h>
 
 #include "joystick.h"
 #include "joystick_mapping.h"
+#include "midi.h"
 
 static jack_port_t *output_midi_port;
 static int current_midi_channel = 0;
 
 #define JACK_CLIENT_NAME_BASE "joy2jack"
+
+#define MAX_MIDI_NOTES 256
+
+jack_midi_data_t note_queue[3*MAX_MIDI_NOTES]; /* Status, Note, Velocity */
+static int current_note = -1;
+
 
 void fatal_error(const char *format, ...)
 {
@@ -42,6 +51,11 @@ void jack_shutdown(void *arg)
 }
 
 
+int button_to_note(uint8_t button)
+{
+   return (button + 60) & 0x7f;
+}
+
 void joy_event(struct js_event *e)
 {
    if (CHECK_EVENT(*e, MIDI_NEXT_CHANNEL))
@@ -50,6 +64,7 @@ void joy_event(struct js_event *e)
       if (current_midi_channel == 16)
          current_midi_channel = 0;
       printf("Switching to channel %d\n", current_midi_channel);
+      return;
    }
 
    if (CHECK_EVENT(*e, MIDI_PREVIOUS_CHANNEL))
@@ -60,8 +75,36 @@ void joy_event(struct js_event *e)
          current_midi_channel--;
 
       printf("Switching to channel %d\n", current_midi_channel);
+      return;
    }
+
+   if (e->type != JS_EVENT_BUTTON) /* Only use buttons yet */
+      return;
+
+   jack_midi_data_t *note = note_queue + 3*current_note; /* Status, Note, Velocity */
+
+   /* See http://www.midi.org/techspecs/midimessages.php for MIDI message specification */
+   if (e->value)
+      note[0] = NOTE_ON | current_midi_channel;
+   else
+      note[0] = NOTE_OFF | current_midi_channel;
+   note[1] = button_to_note(e->number);
+   note[2] = MIDI_MAX_VELOCITY; /* max velocity */
+   current_note++;
+}
+
+int process(jack_nframes_t nframes, void *arg)
+{
+
+   if (current_note == 0)
+      return 0;
    
+   void *port_buffer = jack_port_get_buffer(output_midi_port, nframes);
+   jack_midi_clear_buffer(port_buffer);
+   jack_midi_data_t *midi_data = jack_midi_event_reserve(port_buffer, 0, (current_note+1)*3);
+   memcpy(midi_data, note_queue, (current_note+1)*3);
+   current_note = 0;
+   return 0;
 }
 
 int main(int argc, char **argv)
@@ -73,7 +116,8 @@ int main(int argc, char **argv)
    if (!client)
       fatal_error("Failed to connect to jack server\n");
 
-
+   jack_set_process_callback (client, process, 0);
+   
    output_midi_port = jack_port_register(client, "midi_out", JACK_DEFAULT_MIDI_TYPE,
                                          JackPortIsOutput | JackPortIsTerminal | JackPortIsPhysical, 0);
 
@@ -83,7 +127,10 @@ int main(int argc, char **argv)
    if (initialize_joystick("/dev/input/js0", &joy) == -1)
       fatal_error("Failed to initialize joystick\n");
 
+   printf("%d\n", jack_activate(client));
+   
    printf("Initialized joystick %s, %d axes, %d buttons\n", joy.name, joy.axes_count, joy.buttons_count);
+
    
    for(;;)
    {
@@ -91,8 +138,6 @@ int main(int argc, char **argv)
       if (read_joystick_event(&joy, &e) == -1)
          fatal_error("Failed to read joystick event\n");
       joy_event(&e);
-      /* jack_midi_clear_buffer(output_midi_port); */
-/*      jack_midi_event_write(output_midi_port, */
    }
    return 0;
 }
