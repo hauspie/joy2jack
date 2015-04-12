@@ -18,6 +18,8 @@
 #include <stdarg.h>
 #include <jack/jack.h>
 
+#include "joystick.h"
+
 static jack_port_t *output_midi_port;
 
 #define JACK_CLIENT_NAME_BASE "joy2jack"
@@ -37,9 +39,11 @@ void jack_shutdown(void *arg)
    exit(1);
 }
 
+
 int main(int argc, char **argv)
 {
    jack_client_t *client;
+   joystick_t joy;
 
    client = jack_client_open(JACK_CLIENT_NAME_BASE, JackNullOption, NULL);
    if (!client)
@@ -51,7 +55,29 @@ int main(int argc, char **argv)
 
    if (!output_midi_port)
       fatal_error("Failed to create midi port\n");
+
+   if (initialize_joystick("/dev/input/js0", &joy) == -1)
+      fatal_error("Failed to initialize joystick\n");
+
+   printf("Initialized joystick %s, %d axes, %d buttons\n", joy.name, joy.axes_count, joy.buttons_count);
    
-   for(;;);
+   for(;;)
+   {
+      struct js_event e;
+      if (read_joystick_event(&joy, &e) == -1)
+         fatal_error("Failed to read joystick event\n");
+      switch (e.type)
+      {
+         case JS_EVENT_BUTTON:
+            printf("Button %d, value: %d\n", e.number, e.value);
+            break;
+         case JS_EVENT_AXIS:
+            printf("Axis %d, value: %d\n", e.number, e.value);
+            break;
+         default:
+            printf("Other type: %d: %d, %d\n", e.type, e.number, e.value);
+            break;
+      }
+   }
    return 0;
 }

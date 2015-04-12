@@ -11,7 +11,12 @@ OBJS=$(SRCS:.c=.o)
 $(EXE): $(OBJS)
 	$(LD) -o $@ $^ $(LDFLAGS)
 
-.PHONY: clean
+.PHONY: clean makefile.dep
+
+makefile.dep:
+	$(CC) -MM $(SRCS) | sed s@^@src/@g > $@
 
 clean:
 	$(RM) $(OBJS)
+
+include makefile.dep
