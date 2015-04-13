@@ -23,6 +23,7 @@
 #include "joystick.h"
 #include "joystick_mapping.h"
 #include "midi.h"
+#include "config.h"
 
 static jack_port_t *output_midi_port;
 
@@ -131,12 +132,17 @@ int process(jack_nframes_t nframes, void *arg)
    return 0;
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+
+   if (argc >= 2)
+      parse_config_file(argv[1]);
+   
+   
    jack_client_t *client;
    joystick_t joy;
 
-   client = jack_client_open(JACK_CLIENT_NAME_BASE, JackNullOption, NULL);
+   client = jack_client_open(JACK_CLIENT_NAME_BASE, JackNullOption | JackNoStartServer, NULL);
    if (!client)
       fatal_error("Failed to connect to jack server\n");
 
