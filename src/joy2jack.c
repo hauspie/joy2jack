@@ -25,7 +25,6 @@
 #include "midi.h"
 
 static jack_port_t *output_midi_port;
-static int current_midi_channel = 0;
 
 #define JACK_CLIENT_NAME_BASE "joy2jack"
 
@@ -58,6 +57,9 @@ int button_to_note(uint8_t button)
 
 void joy_event(struct js_event *e)
 {
+   static int current_midi_channel = 0;
+   static int send_note_off = 0;
+   printf("Joy event: %d %d %d\n", e->type, e->number, e->value);
    if (CHECK_EVENT(*e, MIDI_NEXT_CHANNEL))
    {
       current_midi_channel++;
@@ -78,10 +80,25 @@ void joy_event(struct js_event *e)
       return;
    }
 
+   if (CHECK_EVENT(*e, MIDI_SEND_NOTE_OFF))
+   {
+      send_note_off = 1;
+      printf("Now sending note off\n");
+      return;
+   }
+
+   if (CHECK_EVENT(*e, MIDI_DONT_SEND_NOTE_OFF))
+   {
+      send_note_off = 0;
+      printf("Do not send note off anymore\n");
+      return;
+   }
+
+      
    if (e->type != JS_EVENT_BUTTON) /* Only use buttons yet */
       return;
 
-   if (!e->value) /* Do not send NOTE_OFF */
+   if (!e->value && !send_note_off) /* Do not send NOTE_OFF */
       return;
    current_note++;
    jack_midi_data_t *note = note_queue + 3*current_note; /* Status, Note, Velocity */
@@ -98,18 +115,19 @@ void joy_event(struct js_event *e)
 int process(jack_nframes_t nframes, void *arg)
 {
 
-   if (current_note == 0)
-      return 0;
-   
-   void *port_buffer = jack_port_get_buffer(output_midi_port, nframes);
+
+   void *port_buffer = jack_port_get_buffer(output_midi_port, 1);
    jack_midi_clear_buffer(port_buffer);
+   if (current_note == -1)
+      return 0;
+   printf("Sending %d notes to jack\n", current_note+1);
    jack_midi_data_t *midi_data = jack_midi_event_reserve(port_buffer, 0, (current_note+1)*3);
    memcpy(midi_data, note_queue, (current_note+1)*3);
    current_note = -1;
    return 0;
 }
 
-int main(int argc, char **argv)
+int main(void)
 {
    jack_client_t *client;
    joystick_t joy;

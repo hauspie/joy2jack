@@ -16,13 +16,13 @@
 #ifndef __MAPPING_HELPERS_H__
 #define __MAPPING_HELPERS_H__
 
-#define BUTTON_EVENT(number,value) ((1 << 15) | (number & 0x7f) << 7 | (value & 0x7f))
-#define AXIS_EVENT(number,value) ((number & 0x7f) << 7 | (value & 0x7f))
+#define BUTTON_EVENT(number,value) ((1 << 31) | ((number) & 0x7fff) << 16 | ((value) & 0xffff))
+#define AXIS_EVENT(number,value) (((number) & 0x7fff) << 16 | ((value) & 0xffff))
 
-#define IS_BUTTON(event_compact_description) ((event_compact_description) & (1 << 15) ? 1 : 0)
-#define IS_AXIS(event_compact_description) ((event_compact_description) & (1 << 15) ? 0 : 1)
-#define NUMBER(event_compact_description) (((event_compact_description) >> 7) & 0x7f)
-#define VALUE(event_compact_description) (((event_compact_description)) & 0x7f)
+#define IS_BUTTON(event_compact_description) ((event_compact_description) & (1 << 31) ? 1 : 0)
+#define IS_AXIS(event_compact_description) ((event_compact_description) & (1 << 31) ? 0 : 1)
+#define NUMBER(event_compact_description) ((int16_t)(((event_compact_description) >> 16) & 0x7fff))
+#define VALUE(event_compact_description) ((int16_t) ( (event_compact_description) & 0xffff))
 
 #define IS_SAME(joyevent_type, event_compact_description) (((joyevent_type) == JS_EVENT_BUTTON) && IS_BUTTON((event_compact_description)) || (((joyevent_type) == JS_EVENT_AXIS) && IS_AXIS((event_compact_description))))
 
