@@ -17,13 +17,14 @@
 #ifndef __JOYSTICK_MAPPING_H__
 #define __JOYSTICK_MAPPING_H__
 #include "mapping_helpers.h"
-
+#include "midi.h"
 
 /* Wii Rock band controler (from left to righ) */
 #define RED_PAD      2
 #define YELLOW_PAD   3
 #define BLUE_PAD     0
 #define GREEN_PAD    1
+#define PEDAL        4
 #define A_BUTTON     1
 #define B_BUTTON     2
 #define ONE_BUTTON   0
@@ -47,7 +48,22 @@
 #define MIDI_DONT_SEND_NOTE_OFF    AXIS_EVENT(4, -32767)
 
 
-/* Alternate Button Names */
 
+/* This file should be included only once, thus it is not that bad to
+ * declare this array in the header file. This makes all configuration
+ * available in the same file
+ */
+
+static struct button_mapping {
+   int button;
+   int note;
+} button_mapping[] = {
+   { RED_PAD, OPEN_HI_HAT},
+   { YELLOW_PAD, SNARE_DRUM_1},
+   { BLUE_PAD, MID_TOM_1},
+   { GREEN_PAD, CRASH_CYMBAL_1 },
+   { PEDAL, BASS_DRUM_1 },
+   { -1, -1 }, /* Termination value, DO NOT REMOVE ! */
+};
 
 #endif

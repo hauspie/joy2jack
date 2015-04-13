@@ -52,7 +52,11 @@ void jack_shutdown(void *arg)
 
 int button_to_note(uint8_t button)
 {
-   return (button + 36) & 0x7f;
+   int i;
+   for (i = 0 ; button_mapping[i].button != -1 ; ++i)
+      if (button_mapping[i].button == button)
+         return button_mapping[i].note;
+   return 0;
 }
 
 void joy_event(struct js_event *e)
@@ -108,7 +112,7 @@ void joy_event(struct js_event *e)
    else
       note[0] = NOTE_OFF | current_midi_channel;
    note[1] = button_to_note(e->number);
-   note[2] = 100;//MIDI_MAX_VELOCITY; /* max velocity */
+   note[2] = MIDI_AVERAGE_VELOCITY;
    printf("Sending(%d) %x %d %d\n", e->type, note[0], note[1], note[2]);
 }
 
