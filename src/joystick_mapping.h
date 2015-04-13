@@ -18,14 +18,36 @@
 #define __JOYSTICK_MAPPING_H__
 #include "mapping_helpers.h"
 
+
+/* Wii Rock band controler (from left to righ) */
+#define RED_PAD      2
+#define YELLOW_PAD   3
+#define BLUE_PAD     0
+#define GREEN_PAD    1
+#define A_BUTTON     1
+#define B_BUTTON     2
+#define ONE_BUTTON   0
+#define TWO_BUTTON   3
+#define PLUS_BUTTON  9
+#define MINUS_BUTTON 8
+
+/* Names for values */
+#define BUTTON_PRESSED 1
+#define BUTTON_RELEASED 0
+
 /* This mapping corresponds to the rockband wii drum kit
    
    Midi next/previous channels are + and - buttons
 */
 
-#define MIDI_NEXT_CHANNEL     BUTTON_EVENT(9, 1)
-#define MIDI_PREVIOUS_CHANNEL BUTTON_EVENT(8, 1)
+#define MIDI_NEXT_CHANNEL     BUTTON_EVENT(PLUS_BUTTON, BUTTON_PRESSED)
+#define MIDI_PREVIOUS_CHANNEL BUTTON_EVENT(MINUS_BUTTON, BUTTON_RELEASED)
 
+#define MIDI_SEND_NOTE_OFF         AXIS_EVENT(4, 32767)
+#define MIDI_DONT_SEND_NOTE_OFF    AXIS_EVENT(4, -32767)
+
+
+/* Alternate Button Names */
 
 
 #endif
