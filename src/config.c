@@ -138,5 +138,9 @@ int parse_config_file(const char *path)
       }
       fprintf(stderr, "Warning: possible bogus line: %s:%d\n", path, line);
    }
+   regfree(&assignments);
+   regfree(&mappings);
+   free(symbolics);
+   fclose(f);
    return 0;
 }
