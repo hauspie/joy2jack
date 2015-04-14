@@ -62,7 +62,7 @@ int button_to_note(uint8_t button)
 
 void joy_event(struct js_event *e)
 {
-   static int current_midi_channel = 0;
+   static int current_midi_channel = 10;
    static int send_note_off = 0;
    printf("Joy event: %d %d %d\n", e->type, e->number, e->value);
    if (CHECK_EVENT(*e, MIDI_NEXT_CHANNEL))

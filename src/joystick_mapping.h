@@ -58,9 +58,9 @@ static struct button_mapping {
    int button;
    int note;
 } button_mapping[] = {
-   { RED_PAD, OPEN_HI_HAT},
+   { RED_PAD, CLOSED_HI_HAT},
    { YELLOW_PAD, SNARE_DRUM_1},
-   { BLUE_PAD, MID_TOM_1},
+   { BLUE_PAD, LOW_TOM_1},
    { GREEN_PAD, CRASH_CYMBAL_1 },
    { PEDAL, BASS_DRUM_1 },
    { -1, -1 }, /* Termination value, DO NOT REMOVE ! */
