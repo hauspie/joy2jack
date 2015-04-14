@@ -57,12 +57,12 @@ int button_to_note(uint8_t button)
    for (i = 0 ; button_mapping[i].button != -1 ; ++i)
       if (button_mapping[i].button == button)
          return button_mapping[i].note;
-   return 0;
+   return -1;
 }
 
 void joy_event(struct js_event *e)
 {
-   static int current_midi_channel = 10;
+   static int current_midi_channel = 9;
    static int send_note_off = 0;
    printf("Joy event: %d %d %d\n", e->type, e->number, e->value);
    if (CHECK_EVENT(*e, MIDI_NEXT_CHANNEL))
@@ -105,6 +105,9 @@ void joy_event(struct js_event *e)
 
    if (!e->value && !send_note_off) /* Do not send NOTE_OFF */
       return;
+   int note_value = button_to_note(e->number);
+   if (note_value == -1)
+      return;
    current_note++;
    jack_midi_data_t *note = note_queue + 3*current_note; /* Status, Note, Velocity */
    /* See http://www.midi.org/techspecs/midimessages.php for MIDI message specification */
@@ -112,7 +115,7 @@ void joy_event(struct js_event *e)
       note[0] = NOTE_ON | current_midi_channel;
    else
       note[0] = NOTE_OFF | current_midi_channel;
-   note[1] = button_to_note(e->number);
+   note[1] = note_value;
    note[2] = MIDI_AVERAGE_VELOCITY;
    printf("Sending(%d) %x %d %d\n", e->type, note[0], note[1], note[2]);
 }
