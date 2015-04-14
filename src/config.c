@@ -36,27 +36,27 @@ typedef struct {
  */
 static char *chomp(char *buffer)
 {
-   /* strip comments */
-   char *ptr = strchr(buffer, '#');
-   if (ptr)
-      *ptr = '\0';
-   if (buffer[0] == '\0')
-      return buffer;
-   ptr = buffer + strlen(buffer) - 1;
-   /* strip trailing white spaces */
-   while (isspace(*ptr) && ptr != buffer)
-      --ptr;
-   if (ptr == buffer)
-   {
-      *ptr = '\0';
-      return buffer;
-   }
-   ptr[1] = '\0';
-   /* strip starting white spaces */
-   ptr = buffer;
+   char *ptr = buffer;
+
+   /* Strip first spaces */
    while (*ptr && isspace(*ptr))
-      ptr++;
-   return ptr;
+      ++ptr;
+   if (*ptr == '\0')
+      return ptr;
+   char *start = ptr;
+   /* Find comments */
+   while (*ptr && *ptr != '#')
+      ++ptr;
+   /* Even if '#' was not found, it does not harm and just overwrites
+    * \0 */
+   *ptr = '\0';
+   /* strip last spaces */
+   --ptr;
+   while (ptr != start && isspace(*ptr))
+      --ptr;
+   if (ptr != start)
+      ptr[1] = '\0';
+   return start;
 }
 
 static char *subcpy(char *dst, const char *str, int so, int eo)
