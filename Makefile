@@ -1,5 +1,7 @@
 CFLAGS=-Wall -W -g -O
-LDFLAGS=-ljack
+CFLAGS+=$(shell pkg-config jack --cflags)
+LDFLAGS=
+LDFLAGS+=$(shell pkg-config jack --libs)
 CC=clang
 LD=$(CC)
 
