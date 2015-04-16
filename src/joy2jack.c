@@ -64,7 +64,7 @@ void joy_event(struct js_event *e)
 {
    static int current_midi_channel = 9;
    static int send_note_off = 0;
-   printf("Joy event: %d %d %d\n", e->type, e->number, e->value);
+   /* printf("Joy event: %d %d %d\n", e->type, e->number, e->value); */
    if (CHECK_EVENT(*e, MIDI_NEXT_CHANNEL))
    {
       current_midi_channel++;
@@ -129,8 +129,12 @@ int process(jack_nframes_t nframes, void *arg)
    if (current_note == -1)
       return 0;
    printf("Sending %d notes to jack\n", current_note+1);
-   jack_midi_data_t *midi_data = jack_midi_event_reserve(port_buffer, 0, (current_note+1)*3);
-   memcpy(midi_data, note_queue, (current_note+1)*3);
+   int i;
+   for (i = 0 ; i < current_note +1; ++i)
+   {
+      printf("%x %d\n", note_queue[i*3], note_queue[i*3+1]);
+      jack_midi_event_write(port_buffer, 0, note_queue+i*3, 3);
+   }
    current_note = -1;
    return 0;
 }
