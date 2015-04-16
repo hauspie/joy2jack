@@ -32,7 +32,7 @@ static jack_port_t *output_midi_port;
 #define MAX_MIDI_NOTES 256
 
 jack_midi_data_t note_queue[3*MAX_MIDI_NOTES]; /* Status, Note, Velocity */
-static int current_note = -1;
+static int notes_count = 0;
 
 
 void fatal_error(const char *format, ...)
@@ -108,8 +108,8 @@ void joy_event(struct js_event *e)
    int note_value = button_to_note(e->number);
    if (note_value == -1)
       return;
-   current_note++;
-   jack_midi_data_t *note = note_queue + 3*current_note; /* Status, Note, Velocity */
+   jack_midi_data_t *note = note_queue + 3*notes_count; /* Status, Note, Velocity */
+   notes_count++;
    /* See http://www.midi.org/techspecs/midimessages.php for MIDI message specification */
    if (e->value)
       note[0] = NOTE_ON | current_midi_channel;
@@ -117,25 +117,19 @@ void joy_event(struct js_event *e)
       note[0] = NOTE_OFF | current_midi_channel;
    note[1] = note_value;
    note[2] = MIDI_AVERAGE_VELOCITY;
-   printf("Sending(%d) %x %d %d\n", e->type, note[0], note[1], note[2]);
 }
 
 int process(jack_nframes_t nframes, void *arg)
 {
-
-
    void *port_buffer = jack_port_get_buffer(output_midi_port, 1);
    jack_midi_clear_buffer(port_buffer);
-   if (current_note == -1)
+   if (notes_count == 0)
       return 0;
-   printf("Sending %d notes to jack\n", current_note+1);
    int i;
-   for (i = 0 ; i < current_note +1; ++i)
-   {
-      printf("%x %d\n", note_queue[i*3], note_queue[i*3+1]);
+   for (i = 0 ; i < notes_count; ++i)
       jack_midi_event_write(port_buffer, 0, note_queue+i*3, 3);
-   }
-   current_note = -1;
+
+   notes_count = 0;
    return 0;
 }
 
