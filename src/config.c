@@ -30,6 +30,13 @@ typedef struct {
 } symbolic_value_t;
 
 
+typedef struct {
+   symbolic_value_t *symbols;
+   int symbol_count;
+   int max_symbols;
+} symbol_list_t;
+
+
 /* Strips comments and ending space charaters and returns a pointer on
  * the first non space charater.
  * DOES modify the string!
@@ -50,6 +57,8 @@ static char *chomp(char *buffer)
    /* Even if '#' was not found, it does not harm and just overwrites
     * \0 */
    *ptr = '\0';
+   if (ptr == buffer)
+      return ptr;
    /* strip last spaces */
    --ptr;
    while (ptr != start && isspace(*ptr))
@@ -66,6 +75,69 @@ static char *subcpy(char *dst, const char *str, int so, int eo)
    return dst;
 }
 
+int create_list(symbol_list_t *list, int starting_size)
+{
+   list->symbols = calloc(sizeof(symbolic_value_t), starting_size);
+   if (!list->symbols)
+   {
+      perror("calloc");
+      return -1;
+   }
+   list->symbol_count = 0;
+   list->max_symbols = starting_size;
+   return 0;
+}
+
+int add_symbol(symbol_list_t *list, const char *name, int value)
+{
+   if (list->symbol_count == list->max_symbols)
+   {
+      list->max_symbols *= 2;
+      symbolic_value_t *tmp = realloc(list->symbols, list->max_symbols*sizeof(symbolic_value_t));
+      if (tmp == NULL)
+         return -1;
+      list->symbols = tmp;
+   }
+   symbolic_value_t *s = &list->symbols[list->symbol_count];
+   strncpy(s->symbol, name, MAX_TOKEN_LENGTH-1);
+   s->symbol[MAX_TOKEN_LENGTH-1] = '\0';
+   s->value = value;
+   list->symbol_count++;
+   return 0;
+}
+
+/* Returns the value of the symbol. Warning, returns -1 if not found
+   but as it is, symbols can not have negative values (because of the
+   regexp used to parse)
+*/
+int get_symbol_value(symbol_list_t *list, const char *name)
+{
+   int i;
+   for (i = 0 ; i < list->symbol_count ; ++i)
+   {
+      symbolic_value_t *s = &list->symbols[i];
+      if (strncmp(s->symbol, name, MAX_TOKEN_LENGTH) == 0)
+         return s->value;
+   }
+   return -1;
+}
+
+
+void free_list(symbol_list_t *list)
+{
+   free(list->symbols);
+}
+
+void display_symbol_list(symbol_list_t *list)
+{
+   int i;
+   for (i = 0 ; i < list->symbol_count ; ++i)
+   {
+      symbolic_value_t *s = &list->symbols[i];
+      printf("%s = %d\n", s->symbol, s->value);
+   }
+}
+
 int parse_config_file(const char *path)
 {
    FILE *f;
@@ -77,11 +149,9 @@ int parse_config_file(const char *path)
       return -1;
    }
 
-   int symbolic_values_count = 10;
-   symbolic_value_t *symbolics = calloc(sizeof(symbolic_value_t), symbolic_values_count);
-   if (!symbolics)
+   symbol_list_t symbols;
+   if (create_list(&symbols, 10) == -1)
    {
-      perror("calloc");
       fclose(f);
       return -1;
    }
@@ -93,7 +163,7 @@ int parse_config_file(const char *path)
    if (regcomp(&assignments, "([[:alnum:]_]+)[[:space:]]*=[[:space:]]*([[:digit:]]*)", REG_EXTENDED) != 0)
    {
       perror("regcomp(assignments)");
-      free(symbolics);
+      free_list(&symbols);
       fclose(f);
       return -1;
    }
@@ -101,7 +171,7 @@ int parse_config_file(const char *path)
    if (regcomp(&mappings, "([[:alnum:]_]+)\\(([[:alnum:][:space:],_]+)\\)[[:space:]]*->[[:space:]]*([[:alnum:]_]+)\\(([[:alnum:][:space:],_]+)\\)", REG_EXTENDED) != 0)
    {
       perror("regcomp(mappings)");
-      free(symbolics);
+      free_list(&symbols);
       fclose(f);
       return -1;
    }
@@ -123,6 +193,7 @@ int parse_config_file(const char *path)
          subcpy(symbol, ptr, pmatch[1].rm_so, pmatch[1].rm_eo);
          subcpy(value, ptr, pmatch[2].rm_so, pmatch[2].rm_eo);
          printf("New symbol %s with value %s\n", symbol, value);
+         add_symbol(&symbols, symbol, atoi(value));
          continue;
       }
 
@@ -138,9 +209,10 @@ int parse_config_file(const char *path)
       }
       fprintf(stderr, "Warning: possible bogus line: %s:%d\n", path, line);
    }
+   display_symbol_list(&symbols);
    regfree(&assignments);
    regfree(&mappings);
-   free(symbolics);
+   free_list(&symbols);
    fclose(f);
    return 0;
 }

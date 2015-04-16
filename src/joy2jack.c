@@ -158,8 +158,6 @@ int main(int argc, char **argv)
    if (initialize_joystick("/dev/input/js0", &joy) == -1)
       fatal_error("Failed to initialize joystick\n");
 
-   printf("%d\n", jack_activate(client));
-   
    printf("Initialized joystick %s, %d axes, %d buttons\n", joy.name, joy.axes_count, joy.buttons_count);
 
    

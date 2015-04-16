@@ -18,6 +18,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <linux/joystick.h>
 
@@ -39,6 +40,7 @@ int initialize_joystick(const char *joyfile_path, joystick_t *description)
       description->fd = fd;
       ioctl(fd, JSIOCGAXES, &description->axes_count);
       ioctl(fd, JSIOCGBUTTONS, &description->buttons_count);
+      memset(description->name, 0, MAX_CONTROLER_NAME_SIZE);
       ioctl(fd, JSIOCGNAME(MAX_CONTROLER_NAME_SIZE), description->name);
    }
    return fd;
