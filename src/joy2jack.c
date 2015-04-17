@@ -45,7 +45,7 @@ void fatal_error(const char *format, ...)
 }
 
 /* Called by jack when if the server shuts down or disconnects the client */
-void jack_shutdown(void *arg)
+void jack_shutdown()
 {
    exit(1);
 }
@@ -119,7 +119,7 @@ void joy_event(struct js_event *e)
    note[2] = MIDI_AVERAGE_VELOCITY;
 }
 
-int process(jack_nframes_t nframes, void *arg)
+int process()
 {
    void *port_buffer = jack_port_get_buffer(output_midi_port, 1);
    jack_midi_clear_buffer(port_buffer);
@@ -137,7 +137,10 @@ int main(int argc, char **argv)
 {
 
    if (argc >= 2)
-      parse_config_file(argv[1]);
+   {
+      vector_t mapping;
+      parse_config_file(argv[1], &mapping);
+   }
    
    
    jack_client_t *client;

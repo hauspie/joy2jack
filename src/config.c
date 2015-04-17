@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include "config.h"
+#include "vector.h"
 
 #define MAX_TOKEN_LENGTH 128
 
@@ -30,11 +31,7 @@ typedef struct {
 } symbolic_value_t;
 
 
-typedef struct {
-   symbolic_value_t *symbols;
-   int symbol_count;
-   int max_symbols;
-} symbol_list_t;
+static vector_t symbols; /* global symbol list. Is reset every time parse_config_file is called */
 
 
 /* Strips comments and ending space charaters and returns a pointer on
@@ -75,70 +72,126 @@ static char *subcpy(char *dst, const char *str, int so, int eo)
    return dst;
 }
 
-int create_list(symbol_list_t *list, int starting_size)
+int create_symbol_list(vector_t *list, int starting_size)
 {
-   list->symbols = calloc(sizeof(symbolic_value_t), starting_size);
-   if (!list->symbols)
-   {
-      perror("calloc");
-      return -1;
-   }
-   list->symbol_count = 0;
-   list->max_symbols = starting_size;
-   return 0;
+   return vector_create(list, starting_size, sizeof(symbolic_value_t));
 }
 
-int add_symbol(symbol_list_t *list, const char *name, int value)
+int add_symbol(vector_t *list, const char *name, int value)
 {
-   if (list->symbol_count == list->max_symbols)
-   {
-      list->max_symbols *= 2;
-      symbolic_value_t *tmp = realloc(list->symbols, list->max_symbols*sizeof(symbolic_value_t));
-      if (tmp == NULL)
-         return -1;
-      list->symbols = tmp;
-   }
-   symbolic_value_t *s = &list->symbols[list->symbol_count];
-   strncpy(s->symbol, name, MAX_TOKEN_LENGTH-1);
-   s->symbol[MAX_TOKEN_LENGTH-1] = '\0';
-   s->value = value;
-   list->symbol_count++;
-   return 0;
+   symbolic_value_t s;
+   strncpy(s.symbol, name, MAX_TOKEN_LENGTH-1);
+   s.symbol[MAX_TOKEN_LENGTH-1] = '\0';
+   s.value = value;
+
+   return vector_add_value(list, &s);
 }
 
 /* Returns the value of the symbol. Warning, returns -1 if not found
    but as it is, symbols can not have negative values (because of the
    regexp used to parse)
 */
-int get_symbol_value(symbol_list_t *list, const char *name)
+int get_symbol_value(vector_t *list, const char *name)
 {
    int i;
-   for (i = 0 ; i < list->symbol_count ; ++i)
+   symbolic_value_t *symbols = (symbolic_value_t*) list->element_array;
+   for (i = 0 ; i < list->element_count ; ++i)
    {
-      symbolic_value_t *s = &list->symbols[i];
+      symbolic_value_t *s = &symbols[i];
       if (strncmp(s->symbol, name, MAX_TOKEN_LENGTH) == 0)
          return s->value;
    }
    return -1;
 }
 
-
-void free_list(symbol_list_t *list)
-{
-   free(list->symbols);
-}
-
-void display_symbol_list(symbol_list_t *list)
+void display_symbol_list(vector_t *list)
 {
    int i;
-   for (i = 0 ; i < list->symbol_count ; ++i)
+   symbolic_value_t *symbols = (symbolic_value_t*) list->element_array;
+   for (i = 0 ; i < list->element_count ; ++i)
    {
-      symbolic_value_t *s = &list->symbols[i];
+      symbolic_value_t *s = &symbols[i];
       printf("%s = %d\n", s->symbol, s->value);
    }
 }
 
-int parse_config_file(const char *path)
+void display_mapping_list(vector_t *list)
+{
+   int i;
+   mapping_t *mappings = (mapping_t*) list->element_array;
+   for (i = 0 ; i < list->element_count ; ++i)
+   {
+      mapping_t *m = &mappings[i];
+      printf("%d(%d, %d) -> %d\n", m->event.type, m->event.number, m->event.value, m->action.type);
+   }
+}
+
+#define RETURN_IF_MATCH(token, value, retvalue) do {            \
+      if (strncmp((token), (value), MAX_TOKEN_LENGTH) == 0)     \
+         return (retvalue);                                     \
+   } while (0)
+
+int action_token_to_enum(const char *token)
+{
+   RETURN_IF_MATCH(token, "noteon", NOTEON);
+   RETURN_IF_MATCH(token, "noteoff", NOTEOFF);
+   RETURN_IF_MATCH(token, "note", NOTE);
+   return UNKNOW_ACTION;
+}
+
+int event_token_to_enum(const char *token)
+{
+   RETURN_IF_MATCH(token, "pressed", PRESSED);
+   RETURN_IF_MATCH(token, "released", RELEASED);
+   RETURN_IF_MATCH(token, "pushed", PUSHED);
+   RETURN_IF_MATCH(token, "axis", AXIS);
+   return UNKNOW_EVENT;
+}
+
+/* build event: params are: number, value */
+int build_event(event_t *event, char *param_string)
+{
+   char *ptr = strtok(param_string, ",");
+   if (ptr == NULL)
+      return -1;
+   ptr = chomp(ptr);
+   /* first try to transform symbol */
+   int value = get_symbol_value(&symbols, ptr);
+   if (value != -1)
+      event->number = value;
+   else
+      event->number = atoi(ptr);
+   ptr = strtok(NULL, ",");
+   if (!ptr)
+   {
+      event->value = -1;
+      return 0;
+   }
+   ptr = chomp(ptr);
+   value = get_symbol_value(&symbols, ptr);
+   if (value != -1)
+      event->value = value;
+   else
+      event->value = atoi(ptr);
+   return 0;
+}
+
+int add_mapping(vector_t *mapping_list, const char *event, char *event_params,
+                const char *action, char *action_params)
+{
+   mapping_t mapping;
+   mapping.event.type = event_token_to_enum(event);
+   mapping.action.type = action_token_to_enum(action);
+   if (mapping.event.type == UNKNOW_EVENT || mapping.action.type == UNKNOW_ACTION)
+      return -1;
+   build_event(&mapping.event, event_params);
+   vector_add_value(mapping_list, &mapping);
+   return 0;
+}
+
+
+
+int parse_config_file(const char *path, vector_t *mapping_list)
 {
    FILE *f;
 
@@ -149,13 +202,19 @@ int parse_config_file(const char *path)
       return -1;
    }
 
-   symbol_list_t symbols;
-   if (create_list(&symbols, 10) == -1)
+   if (create_symbol_list(&symbols, 10) == -1)
    {
       fclose(f);
       return -1;
    }
 
+   if (vector_create(mapping_list, 10, sizeof(mapping_t)) == -1)
+   {
+      fclose(f);
+      vector_free(&symbols);
+      return -1;
+   }
+   
    /* Build regex for parsing lines */
    regex_t assignments;
    regex_t mappings;
@@ -163,7 +222,8 @@ int parse_config_file(const char *path)
    if (regcomp(&assignments, "([[:alnum:]_]+)[[:space:]]*=[[:space:]]*([[:digit:]]*)", REG_EXTENDED) != 0)
    {
       perror("regcomp(assignments)");
-      free_list(&symbols);
+      vector_free(&symbols);
+      vector_free(mapping_list);
       fclose(f);
       return -1;
    }
@@ -171,7 +231,8 @@ int parse_config_file(const char *path)
    if (regcomp(&mappings, "([[:alnum:]_]+)\\(([[:alnum:][:space:],_]+)\\)[[:space:]]*->[[:space:]]*([[:alnum:]_]+)\\(([[:alnum:][:space:],_]+)\\)", REG_EXTENDED) != 0)
    {
       perror("regcomp(mappings)");
-      free_list(&symbols);
+      vector_free(&symbols);
+      vector_free(mapping_list);
       fclose(f);
       return -1;
    }
@@ -192,7 +253,6 @@ int parse_config_file(const char *path)
          char symbol[256], value[256];
          subcpy(symbol, ptr, pmatch[1].rm_so, pmatch[1].rm_eo);
          subcpy(value, ptr, pmatch[2].rm_so, pmatch[2].rm_eo);
-         printf("New symbol %s with value %s\n", symbol, value);
          add_symbol(&symbols, symbol, atoi(value));
          continue;
       }
@@ -205,14 +265,17 @@ int parse_config_file(const char *path)
          subcpy(action, ptr, pmatch[3].rm_so, pmatch[3].rm_eo);
          subcpy(action_param, ptr, pmatch[4].rm_so, pmatch[4].rm_eo);
          printf("New mapping: %s(%s) -> %s(%s)\n", event, event_param, action, action_param);
+         add_mapping(mapping_list, event, event_param, action, action_param);
          continue;
       }
       fprintf(stderr, "Warning: possible bogus line: %s:%d\n", path, line);
    }
    display_symbol_list(&symbols);
+   display_mapping_list(mapping_list);
    regfree(&assignments);
    regfree(&mappings);
-   free_list(&symbols);
+   vector_free(&symbols);
+   vector_free(mapping_list);
    fclose(f);
    return 0;
 }

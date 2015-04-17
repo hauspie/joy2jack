@@ -16,8 +16,48 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
+#include "vector.h"
 
-int parse_config_file(const char *path);
+typedef struct
+{
+   enum {
+      PRESSED,  /* pressed() */
+      RELEASED, /* released() */
+      PUSHED,   /* pushed() */
+      AXIS,     /* axis */
+      UNKNOW_EVENT,
+   } type;
+   int number; /* Button or axis number */
+   int value;  /* for axes, the value can be more complicated than just pressed and released */
+   
+} event_t;
+
+
+typedef struct
+{
+   enum {
+      NOTEON,  /* noteon */
+      NOTEOFF, /* noteoff */
+      NOTE,    /* note */
+      UNKNOW_ACTION,
+   } type;
+   union
+   {
+      struct {
+         int note, velocity;
+      } note;
+   } parameter;
+} action_t;
+
+typedef struct
+{
+   event_t event;
+   action_t action;
+} mapping_t;
+
+
+/** Fills a mapping_list_t array of action mapped on events */
+int parse_config_file(const char *path, vector_t *mapping);
 
 
 #endif
