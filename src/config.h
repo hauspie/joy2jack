@@ -36,9 +36,11 @@ typedef struct
 typedef struct
 {
    enum {
-      NOTEON,  /* noteon */
+      MIDI_NOTE_START,
+      NOTEON    /* noteon */ = MIDI_NOTE_START,  
       NOTEOFF, /* noteoff */
       NOTE,    /* note */
+      MIDI_NOTE_END = NOTE,
       UNKNOW_ACTION,
    } type;
    union
@@ -47,6 +49,7 @@ typedef struct
          int note, velocity;
       } note;
    } parameter;
+   int channel;
 } action_t;
 
 typedef struct

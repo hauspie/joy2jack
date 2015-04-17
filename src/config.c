@@ -33,6 +33,8 @@ typedef struct {
 
 static vector_t symbols; /* global symbol list. Is reset every time parse_config_file is called */
 
+#define ACTION_TYPE_IS_NOTE(t) ((t) >= MIDI_NOTE_START && (t) <= MIDI_NOTE_END)
+
 
 /* Strips comments and ending space charaters and returns a pointer on
  * the first non space charater.
@@ -101,6 +103,10 @@ int get_symbol_value(vector_t *list, const char *name)
       if (strncmp(s->symbol, name, MAX_TOKEN_LENGTH) == 0)
          return s->value;
    }
+   if (strncmp(name, "DEFAULT_VELOCITY", MAX_TOKEN_LENGTH) == 0)
+      return 100;
+   if (strncmp(name, "DEFAULT_MIDI_CHANNEL", MAX_TOKEN_LENGTH) == 0)
+      return 1;
    return -1;
 }
 
@@ -122,7 +128,10 @@ void display_mapping_list(vector_t *list)
    for (i = 0 ; i < list->element_count ; ++i)
    {
       mapping_t *m = &mappings[i];
-      printf("%d(%d, %d) -> %d\n", m->event.type, m->event.number, m->event.value, m->action.type);
+      printf("%d(%d, %d) -> %d(", m->event.type, m->event.number, m->event.value, m->action.type);
+      if (ACTION_TYPE_IS_NOTE(m->action.type))
+         printf("%d,%d,", m->action.parameter.note.note, m->action.parameter.note.velocity);
+      printf("%d)\n", m->action.channel);
    }
 }
 
@@ -148,33 +157,67 @@ int event_token_to_enum(const char *token)
    return UNKNOW_EVENT;
 }
 
+/* parse a list a integer value (with possible symbolic value), fills
+ * the array with maximum max_values and returns the actual number of
+ * values
+ */
+
+int build_val_array(int *array, int max_values, char *param_string)
+{
+   int i;
+   char *ptr = strtok(param_string, ",");
+   for (i = 0 ; ptr && i < max_values; ++i)
+   {
+      ptr = chomp(ptr);
+      array[i] = get_symbol_value(&symbols, ptr);
+      if (array[i] == -1)
+         array[i] = atoi(ptr);
+      ptr = strtok(NULL, ",");
+   }
+   return i;
+}
+
 /* build event: params are: number, value */
 int build_event(event_t *event, char *param_string)
 {
-   char *ptr = strtok(param_string, ",");
-   if (ptr == NULL)
+   int vals[2];
+   int n = build_val_array(vals, 2, param_string);
+   if (n <= 0)
       return -1;
-   ptr = chomp(ptr);
-   /* first try to transform symbol */
-   int value = get_symbol_value(&symbols, ptr);
-   if (value != -1)
-      event->number = value;
+   event->number = vals[0];
+   if (n == 2)
+      event->value = vals[1];
    else
-      event->number = atoi(ptr);
-   ptr = strtok(NULL, ",");
-   if (!ptr)
-   {
       event->value = -1;
-      return 0;
-   }
-   ptr = chomp(ptr);
-   value = get_symbol_value(&symbols, ptr);
-   if (value != -1)
-      event->value = value;
-   else
-      event->value = atoi(ptr);
    return 0;
 }
+
+/* Action param is
+   - for note, noteon, noteoff: note [, velocity, channel]
+*/
+int build_action(action_t *action, char *param_string)
+{
+   if (action->type >= MIDI_NOTE_START && action->type <= MIDI_NOTE_END)
+   {
+      int vals[3];
+      int n = build_val_array(vals, 2, param_string);
+      if (n <= 0)
+         return -1;
+      action->parameter.note.note = vals[0];
+      if (n >= 2 && vals[1] != -1)
+         action->parameter.note.velocity = vals[1];
+      else
+         action->parameter.note.velocity = get_symbol_value(&symbols, "DEFAULT_VELOCITY");
+      if (n >= 3 && vals[2] != -1)
+         action->channel = vals[2];
+      else
+         action->channel = get_symbol_value(&symbols, "DEFAULT_MIDI_CHANNEL");
+      return 0;
+   }
+   return -1;
+}
+
+
 
 int add_mapping(vector_t *mapping_list, const char *event, char *event_params,
                 const char *action, char *action_params)
@@ -185,6 +228,7 @@ int add_mapping(vector_t *mapping_list, const char *event, char *event_params,
    if (mapping.event.type == UNKNOW_EVENT || mapping.action.type == UNKNOW_ACTION)
       return -1;
    build_event(&mapping.event, event_params);
+   build_action(&mapping.action, action_params);
    vector_add_value(mapping_list, &mapping);
    return 0;
 }
