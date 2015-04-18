@@ -114,7 +114,7 @@ void joy_event(struct js_event *e)
          case NOTE: onoff = e->value ? NOTE_ON : NOTE_OFF; break;
          default: return;
       }
-      note[0] = onoff | m->action.channel-1;
+      note[0] = onoff | (m->action.channel-1);
       notes_count++;
    }
 }
