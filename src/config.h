@@ -32,15 +32,16 @@ typedef struct
    
 } event_t;
 
+#define BUTTON_EVENT(t) ((t) >= PRESSED && (t) <= PUSHED)
+#define AXIS_EVENT(t) ((t) == AXIS)
+
 
 typedef struct
 {
    enum {
-      MIDI_NOTE_START,
-      NOTEON    /* noteon */ = MIDI_NOTE_START,  
+      NOTEON,    /* noteon */
       NOTEOFF, /* noteoff */
       NOTE,    /* note */
-      MIDI_NOTE_END = NOTE,
       UNKNOW_ACTION,
    } type;
    union
@@ -52,6 +53,8 @@ typedef struct
    int channel;
 } action_t;
 
+#define NOTE_ACTION(t) ((t) >= NOTEON && (t) <= NOTE)
+
 typedef struct
 {
    event_t event;
@@ -61,6 +64,7 @@ typedef struct
 
 /** Fills a mapping_list_t array of action mapped on events */
 int parse_config_file(const char *path, vector_t *mapping);
+
 
 
 #endif

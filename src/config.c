@@ -33,7 +33,6 @@ typedef struct {
 
 static vector_t symbols; /* global symbol list. Is reset every time parse_config_file is called */
 
-#define ACTION_TYPE_IS_NOTE(t) ((t) >= MIDI_NOTE_START && (t) <= MIDI_NOTE_END)
 
 
 /* Strips comments and ending space charaters and returns a pointer on
@@ -113,23 +112,25 @@ int get_symbol_value(vector_t *list, const char *name)
 void display_symbol_list(vector_t *list)
 {
    int i;
+   printf("Dumping symbols:\n");
    symbolic_value_t *symbols = (symbolic_value_t*) list->element_array;
    for (i = 0 ; i < list->element_count ; ++i)
    {
       symbolic_value_t *s = &symbols[i];
-      printf("%s = %d\n", s->symbol, s->value);
+      printf("\t%s\t\t= %d\n", s->symbol, s->value);
    }
 }
 
 void display_mapping_list(vector_t *list)
 {
    int i;
+   printf("Dumping mappings:\n");
    mapping_t *mappings = (mapping_t*) list->element_array;
    for (i = 0 ; i < list->element_count ; ++i)
    {
       mapping_t *m = &mappings[i];
-      printf("%d(%d, %d) -> %d(", m->event.type, m->event.number, m->event.value, m->action.type);
-      if (ACTION_TYPE_IS_NOTE(m->action.type))
+      printf("\t%d(%d, %d) -> %d(", m->event.type, m->event.number, m->event.value, m->action.type);
+      if (NOTE_ACTION(m->action.type))
          printf("%d,%d,", m->action.parameter.note.note, m->action.parameter.note.velocity);
       printf("%d)\n", m->action.channel);
    }
@@ -197,7 +198,7 @@ int build_event(event_t *event, char *param_string)
 */
 int build_action(action_t *action, char *param_string)
 {
-   if (action->type >= MIDI_NOTE_START && action->type <= MIDI_NOTE_END)
+   if (NOTE_ACTION(action->type))
    {
       int vals[3];
       int n = build_val_array(vals, 2, param_string);
@@ -263,7 +264,7 @@ int parse_config_file(const char *path, vector_t *mapping_list)
    regex_t assignments;
    regex_t mappings;
 
-   if (regcomp(&assignments, "([[:alnum:]_]+)[[:space:]]*=[[:space:]]*([[:digit:]]*)", REG_EXTENDED) != 0)
+   if (regcomp(&assignments, "([[:alnum:]_]+)[[:space:]]*=[[:space:]]*(-?[[:digit:]]*)", REG_EXTENDED) != 0)
    {
       perror("regcomp(assignments)");
       vector_free(&symbols);
@@ -308,18 +309,17 @@ int parse_config_file(const char *path, vector_t *mapping_list)
          subcpy(event_param, ptr, pmatch[2].rm_so, pmatch[2].rm_eo);
          subcpy(action, ptr, pmatch[3].rm_so, pmatch[3].rm_eo);
          subcpy(action_param, ptr, pmatch[4].rm_so, pmatch[4].rm_eo);
-         printf("New mapping: %s(%s) -> %s(%s)\n", event, event_param, action, action_param);
          add_mapping(mapping_list, event, event_param, action, action_param);
          continue;
       }
       fprintf(stderr, "Warning: possible bogus line: %s:%d\n", path, line);
    }
-   display_symbol_list(&symbols);
-   display_mapping_list(mapping_list);
+   /* display_symbol_list(&symbols); */
+   /* display_mapping_list(mapping_list); */
+   printf("Loaded %d mappings\n", mapping_list->element_count);
    regfree(&assignments);
    regfree(&mappings);
    vector_free(&symbols);
-   vector_free(mapping_list);
    fclose(f);
    return 0;
 }

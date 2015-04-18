@@ -21,7 +21,6 @@
 #include <jack/midiport.h>
 
 #include "joystick.h"
-#include "joystick_mapping.h"
 #include "midi.h"
 #include "config.h"
 
@@ -33,6 +32,8 @@ static jack_port_t *output_midi_port;
 
 jack_midi_data_t note_queue[3*MAX_MIDI_NOTES]; /* Status, Note, Velocity */
 static int notes_count = 0;
+
+static vector_t mappings;
 
 
 void fatal_error(const char *format, ...)
@@ -51,72 +52,71 @@ void jack_shutdown()
 }
 
 
-int button_to_note(uint8_t button)
+int event_match(struct js_event *joy_event, event_t *mapping_event)
 {
+   if (joy_event->number != mapping_event->number)
+      return 0;
+   if (joy_event->type == JS_EVENT_BUTTON)
+   {
+      if (!BUTTON_EVENT(mapping_event->type))
+         return 0;
+      switch (mapping_event->type)
+      {
+         case PRESSED:   return joy_event->value == 1;
+         case RELEASED:  return joy_event->value == 0;
+         case PUSHED:    return 1; /* PUSHED event always matches */
+         default: break;
+      }
+      return 0;
+   }
+   if (joy_event->type == JS_EVENT_AXIS)
+   {
+      if (!AXIS_EVENT(mapping_event->type))
+         return 0;
+      if (joy_event->value == mapping_event->value)
+         return 1;
+      return 0;
+   }
+   return 0;
+}
+
+mapping_t *get_matching_mapping(struct js_event *e)
+{
+   mapping_t *mappings_array = (mapping_t *) mappings.element_array;
    int i;
-   for (i = 0 ; button_mapping[i].button != -1 ; ++i)
-      if (button_mapping[i].button == button)
-         return button_mapping[i].note;
-   return -1;
+   for (i = 0 ; i < mappings.element_count ; ++i)
+   {
+      mapping_t *m = &mappings_array[i];
+      if (event_match(e, &m->event))
+         return m;
+   }
+   return NULL;
 }
 
 void joy_event(struct js_event *e)
 {
-   static int current_midi_channel = 9;
-   static int send_note_off = 0;
-   /* printf("Joy event: %d %d %d\n", e->type, e->number, e->value); */
-   if (CHECK_EVENT(*e, MIDI_NEXT_CHANNEL))
+   mapping_t *m = get_matching_mapping(e);
+   if (!m)
+      return;
+
+   
+   if (NOTE_ACTION(m->action.type))
    {
-      current_midi_channel++;
-      if (current_midi_channel == 16)
-         current_midi_channel = 0;
-      printf("Switching to channel %d\n", current_midi_channel);
-      return;
+      jack_midi_data_t *note = note_queue + 3*notes_count; /* Status, Note, Velocity */
+
+      note[1] = m->action.parameter.note.note;
+      note[2] = m->action.parameter.note.velocity;
+      int onoff = 0;
+      switch (m->action.type)
+      {
+         case NOTEON: onoff = NOTE_ON; break;
+         case NOTEOFF: onoff = NOTE_OFF; break;
+         case NOTE: onoff = e->value ? NOTE_ON : NOTE_OFF; break;
+         default: return;
+      }
+      note[0] = onoff | m->action.channel-1;
+      notes_count++;
    }
-
-   if (CHECK_EVENT(*e, MIDI_PREVIOUS_CHANNEL))
-   {
-      if (current_midi_channel == 0)
-         current_midi_channel = 15;
-      else
-         current_midi_channel--;
-
-      printf("Switching to channel %d\n", current_midi_channel);
-      return;
-   }
-
-   if (CHECK_EVENT(*e, MIDI_SEND_NOTE_OFF))
-   {
-      send_note_off = 1;
-      printf("Now sending note off\n");
-      return;
-   }
-
-   if (CHECK_EVENT(*e, MIDI_DONT_SEND_NOTE_OFF))
-   {
-      send_note_off = 0;
-      printf("Do not send note off anymore\n");
-      return;
-   }
-
-      
-   if (e->type != JS_EVENT_BUTTON) /* Only use buttons yet */
-      return;
-
-   if (!e->value && !send_note_off) /* Do not send NOTE_OFF */
-      return;
-   int note_value = button_to_note(e->number);
-   if (note_value == -1)
-      return;
-   jack_midi_data_t *note = note_queue + 3*notes_count; /* Status, Note, Velocity */
-   notes_count++;
-   /* See http://www.midi.org/techspecs/midimessages.php for MIDI message specification */
-   if (e->value)
-      note[0] = NOTE_ON | current_midi_channel;
-   else
-      note[0] = NOTE_OFF | current_midi_channel;
-   note[1] = note_value;
-   note[2] = MIDI_AVERAGE_VELOCITY;
 }
 
 int process()
@@ -137,10 +137,11 @@ int main(int argc, char **argv)
 {
 
    if (argc >= 2)
-   {
-      vector_t mapping;
-      parse_config_file(argv[1], &mapping);
-   }
+      parse_config_file(argv[1], &mappings);
+/*   else 
+     generate_default_mapping(&mapping);
+ */
+     
    
    
    jack_client_t *client;
@@ -163,6 +164,7 @@ int main(int argc, char **argv)
 
    printf("Initialized joystick %s, %d axes, %d buttons\n", joy.name, joy.axes_count, joy.buttons_count);
 
+   jack_activate(client);
    
    for(;;)
    {
