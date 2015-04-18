@@ -143,7 +143,7 @@ int main(int argc, char **argv)
       fprintf(stderr, "usage: %s config_file [joystick_device_file]\n", argv[0]);
       return 1;
    }
-/*   else 
+/*   TODO: generate a default mapping if no config file is present
      generate_default_mapping(&mapping);
  */
      
