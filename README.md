@@ -14,7 +14,10 @@ example).
 Compile requirements
 ====================
 * Jack development library
+* clang compiler (optional, you can just switch to `gcc` in the `Makefile`)
 * make
+
+A simple `make` in the main folder should build the `joy2jack` executable.
 
 Runtime requirements
 ====================
