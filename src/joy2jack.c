@@ -138,6 +138,11 @@ int main(int argc, char **argv)
 
    if (argc >= 2)
       parse_config_file(argv[1], &mappings);
+   else
+   {
+      fprintf(stderr, "usage: %s config_file [joystick_device_file]\n", argv[0]);
+      return 1;
+   }
 /*   else 
      generate_default_mapping(&mapping);
  */
@@ -159,7 +164,10 @@ int main(int argc, char **argv)
    if (!output_midi_port)
       fatal_error("Failed to create midi port\n");
 
-   if (initialize_joystick("/dev/input/js0", &joy) == -1)
+   const char *joyfile = "/dev/input/js0";
+   if (argc >= 3)
+      joyfile = argv[2];
+   if (initialize_joystick(joyfile, &joy) == -1)
       fatal_error("Failed to initialize joystick\n");
 
    printf("Initialized joystick %s, %d axes, %d buttons\n", joy.name, joy.axes_count, joy.buttons_count);
