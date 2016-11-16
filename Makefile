@@ -16,7 +16,7 @@ $(EXE): $(OBJS)
 .PHONY: clean makefile.dep
 
 makefile.dep:
-	$(CC) -MM $(SRCS) | sed s@^@src/@g > $@
+	$(CC) -MM $(SRCS) | sed 's@^\([^:]*\):@src/\1:@g' > $@
 
 clean:
 	$(RM) $(OBJS)
